@@ -16,6 +16,7 @@
  */
 package sopra.processors.FlatText;
 
+import org.apache.commons.io.IOUtils;
 import org.apache.nifi.components.PropertyDescriptor;
 import org.apache.nifi.flowfile.FlowFile;
 import org.apache.nifi.annotation.behavior.ReadsAttribute;
@@ -32,46 +33,57 @@ import org.apache.nifi.processor.ProcessContext;
 import org.apache.nifi.processor.ProcessSession;
 import org.apache.nifi.processor.ProcessorInitializationContext;
 import org.apache.nifi.processor.Relationship;
+import org.apache.nifi.processor.io.InputStreamCallback;
+import org.apache.nifi.processor.io.OutputStreamCallback;
 import org.apache.nifi.processor.util.StandardValidators;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 
-@Tags({"example"})
-@CapabilityDescription("Provide a description")
+@Tags({"FlatTextToCsv"})
+@CapabilityDescription("Transforms a positioned flat text into CSV.")
 @SeeAlso({})
 @ReadsAttributes({@ReadsAttribute(attribute="", description="")})
 @WritesAttributes({@WritesAttribute(attribute="", description="")})
-public class MyProcessor extends AbstractProcessor {
+public class FlatTextToCsv extends AbstractProcessor {
 
-    public static final PropertyDescriptor MY_PROPERTY = new PropertyDescriptor
-            .Builder().name("MY_PROPERTY")
-            .displayName("My property")
-            .description("Example Property")
+    public static final PropertyDescriptor HEADERS = new PropertyDescriptor
+            .Builder().name("HEADERS")
+            .displayName("Headers")
+            .description("Path to the .json file headers descriptor.")
             .required(true)
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
             .build();
 
-    public static final Relationship MY_RELATIONSHIP = new Relationship.Builder()
-            .name("MY_RELATIONSHIP")
-            .description("Example relationship")
+    public static final Relationship CONVERSION_SUCCESS = new Relationship.Builder()
+            .name("CONVERSION SUCCESS")
+            .description("Relationship used when succeed")
+            .build();
+
+    public static final Relationship CONVERSION_FAILED = new Relationship.Builder()
+            .name("CONVERSION FAILED")
+            .description("Relationship used when failed")
             .build();
 
     private List<PropertyDescriptor> descriptors;
-
     private Set<Relationship> relationships;
 
     @Override
     protected void init(final ProcessorInitializationContext context) {
         final List<PropertyDescriptor> descriptors = new ArrayList<PropertyDescriptor>();
-        descriptors.add(MY_PROPERTY);
+        descriptors.add(HEADERS);
         this.descriptors = Collections.unmodifiableList(descriptors);
 
         final Set<Relationship> relationships = new HashSet<Relationship>();
-        relationships.add(MY_RELATIONSHIP);
+        relationships.add(CONVERSION_SUCCESS);
+        relationships.add(CONVERSION_FAILED);
         this.relationships = Collections.unmodifiableSet(relationships);
     }
 
@@ -92,10 +104,32 @@ public class MyProcessor extends AbstractProcessor {
 
     @Override
     public void onTrigger(final ProcessContext context, final ProcessSession session) throws ProcessException {
+        final AtomicReference<String> data = new AtomicReference<>();
+
         FlowFile flowFile = session.get();
         if ( flowFile == null ) {
             return;
         }
-        // TODO implement
+
+        session.read(flowFile, new InputStreamCallback() {
+            @Override
+            public void process(InputStream in) throws IOException {
+                try{
+                    data.set(IOUtils.toString(in, "UTF-8"));
+                } catch(Exception ex){
+                    ex.printStackTrace();
+                    getLogger().error("Failed to read input file.");
+                }
+            }
+        });
+
+        flowFile = session.write(flowFile, new OutputStreamCallback() {
+            @Override
+            public void process(OutputStream out) throws IOException {
+                out.write(data.get().getBytes());
+            }
+        });
+
+        session.transfer(flowFile, CONVERSION_SUCCESS);
     }
 }
