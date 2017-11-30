@@ -43,7 +43,7 @@ public class FlatTextToCsvTest {
 
     @Test
     public void testProcessor() throws IOException {
-        Path file = Paths.get("C:\\Users\\Vincent\\Desktop\\NiFi\\data\\TRAOPT01-ALL.DAT");
+        Path file = Paths.get("C:\\Users\\Vincent\\Desktop\\NiFi\\data\\CREPER01-ALL.DAT");
         testRunner.setProperty(FlatTextToCsv.HEADERS, "HEADER");
 
         testRunner.enqueue(Files.readAllBytes(file));
@@ -54,7 +54,7 @@ public class FlatTextToCsvTest {
         assertTrue("Conversion failed", results.size() == 1);
         MockFlowFile result = results.get(0);
 
-        System.out.println("Résultat = " + IOUtils.toString(testRunner.getContentAsByteArray(result)));
+        System.out.println("Résultat = \n" + IOUtils.toString(testRunner.getContentAsByteArray(result)));
         System.out.println("Longueur du résultat = " + result.getSize());
 
         // Test attributes and content

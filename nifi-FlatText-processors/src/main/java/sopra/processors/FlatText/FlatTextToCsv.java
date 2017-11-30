@@ -48,7 +48,8 @@ import java.util.concurrent.atomic.AtomicReference;
 @ReadsAttributes({@ReadsAttribute(attribute="", description="")})
 @WritesAttributes({@WritesAttribute(attribute="", description="")})
 public class FlatTextToCsv extends AbstractProcessor {
-    private HashMap<String, Integer> flatFileFormat;
+
+    private List<Column> fileFormat;
 
     public static final PropertyDescriptor HEADERS = new PropertyDescriptor
             .Builder().name("HEADERS")
@@ -82,8 +83,15 @@ public class FlatTextToCsv extends AbstractProcessor {
         relationships.add(CONVERSION_FAILED);
         this.relationships = Collections.unmodifiableSet(relationships);
 
-        flatFileFormat = new HashMap<>();
-
+        // Exemple static
+        fileFormat = new ArrayList<>();
+        fileFormat.add(new Column("nctycre", 1, 5));
+        fileFormat.add(new Column("dtappl", 6, 8));
+        fileFormat.add(new Column("cdvstycre", 14, 3));
+        fileFormat.add(new Column("cdtyenr", 17, 10));
+        fileFormat.add(new Column("cdlotcre", 103, 34));
+        fileFormat.add(new Column("cdinstcre", 137, 34));
+        fileFormat.add(new Column("mtscht", 409, 16));
     }
 
     @Override
@@ -119,15 +127,21 @@ public class FlatTextToCsv extends AbstractProcessor {
             public void process(InputStream in) throws IOException {
                 try{
                     // String content = IOUtils.toString(in, "UTF-8");
+
+                    // Ecriture de l'entête
+                    for(Column c : fileFormat)
+                        data.set(data.get() + c.getName() + ";");
+                    data.set(data.get().substring(0, data.get().length()-2) + "\n");
+
                     Scanner scanner = new Scanner(in);
                     while (scanner.hasNextLine()) {
                         String line = scanner.nextLine(); // Ligne courante
-                        int cursor = 0;
-                        for(Integer size : flatFileFormat.values()) {
-                            if(cursor + size < line.length())
-                                data.set(data.get() + line.substring(cursor, cursor + size));
-                            cursor += size;
+                        for(Column c : fileFormat) {
+                            if(c.getIndex() + c.getLength() < line.length())
+                                data.set(data.get() + line.substring(c.getIndex(), c.getIndex() + c.getLength()).trim() + ";");
                         }
+                        // On retire le point virgule en fin de ligne et on revient à la ligne.
+                        data.set(data.get().substring(0, data.get().length()-2) + "\n");
                     }
 
                 } catch(Exception ex){
