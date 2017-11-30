@@ -16,10 +16,20 @@
  */
 package sopra.processors.FlatText;
 
+import org.apache.commons.io.IOUtils;
+import org.apache.nifi.util.MockFlowFile;
 import org.apache.nifi.util.TestRunner;
 import org.apache.nifi.util.TestRunners;
 import org.junit.Before;
 import org.junit.Test;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.List;
+
+import static org.junit.Assert.assertTrue;
 
 
 public class FlatTextToCsvTest {
@@ -32,8 +42,26 @@ public class FlatTextToCsvTest {
     }
 
     @Test
-    public void testProcessor() {
+    public void testProcessor() throws IOException {
+        Path file = Paths.get("C:\\Users\\Vincent\\Desktop\\NiFi\\data\\TRAOPT01-ALL.DAT");
+        testRunner.setProperty(FlatTextToCsv.HEADERS, "HEADER");
 
+        testRunner.enqueue(Files.readAllBytes(file));
+        testRunner.run(1);
+        testRunner.assertQueueEmpty();
+
+        List<MockFlowFile> results = testRunner.getFlowFilesForRelationship(FlatTextToCsv.CONVERSION_SUCCESS);
+        assertTrue("Conversion failed", results.size() == 1);
+        MockFlowFile result = results.get(0);
+
+        System.out.println("Résultat = " + IOUtils.toString(testRunner.getContentAsByteArray(result)));
+        System.out.println("Longueur du résultat = " + result.getSize());
+
+        // Test attributes and content
+        /*
+        result.assertAttributeEquals(JsonProcessor.MATCH_ATTR, "nifi rocks");
+        result.assertContentEquals("nifi rocks");
+        */
     }
 
 }
