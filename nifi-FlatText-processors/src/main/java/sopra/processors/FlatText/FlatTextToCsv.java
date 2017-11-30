@@ -131,7 +131,7 @@ public class FlatTextToCsv extends AbstractProcessor {
                     // Ecriture de l'entête
                     for(Column c : fileFormat)
                         data.set(data.get() + c.getName() + ";");
-                    data.set(data.get().substring(0, data.get().length()-2) + "\n");
+                    data.set(data.get().substring(0, data.get().length()-1) + "\n");
 
                     Scanner scanner = new Scanner(in);
                     while (scanner.hasNextLine()) {
@@ -141,7 +141,7 @@ public class FlatTextToCsv extends AbstractProcessor {
                                 data.set(data.get() + line.substring(c.getIndex(), c.getIndex() + c.getLength()).trim() + ";");
                         }
                         // On retire le point virgule en fin de ligne et on revient à la ligne.
-                        data.set(data.get().substring(0, data.get().length()-2) + "\n");
+                        data.set(data.get().substring(0, data.get().length()-1) + "\n");
                     }
 
                 } catch(Exception ex){
