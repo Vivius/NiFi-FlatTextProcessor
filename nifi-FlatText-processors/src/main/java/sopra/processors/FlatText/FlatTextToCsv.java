@@ -16,7 +16,6 @@
  */
 package sopra.processors.FlatText;
 
-import javafx.util.Pair;
 import org.apache.commons.io.IOUtils;
 import org.apache.nifi.components.PropertyDescriptor;
 import org.apache.nifi.flowfile.FlowFile;
@@ -34,11 +33,8 @@ import org.apache.nifi.processor.ProcessContext;
 import org.apache.nifi.processor.ProcessSession;
 import org.apache.nifi.processor.ProcessorInitializationContext;
 import org.apache.nifi.processor.Relationship;
-import org.apache.nifi.processor.io.InputStreamCallback;
-import org.apache.nifi.processor.io.OutputStreamCallback;
 import org.apache.nifi.processor.util.StandardValidators;
 
-import java.io.*;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -106,13 +102,12 @@ public class FlatTextToCsv extends AbstractProcessor {
 
     @OnScheduled
     public void onScheduled(final ProcessContext context) {
-
+        // Méthode appelée au démarrage du processor.
     }
 
     @Override
     public void onTrigger(final ProcessContext context, final ProcessSession session) throws ProcessException {
-        final AtomicReference<String> data = new AtomicReference<>();
-        data.set(new String());
+        final AtomicReference<String> csv = new AtomicReference<>("");
 
         FlowFile flowFile = session.get();
         if ( flowFile == null ) {
@@ -121,44 +116,43 @@ public class FlatTextToCsv extends AbstractProcessor {
 
         System.out.println("Nom fichier = " + flowFile.getAttribute("filename"));
 
-        // Lecture des données en entrée en conversion.
-        session.read(flowFile, new InputStreamCallback() {
-            @Override
-            public void process(InputStream in) throws IOException {
-                try{
-                    // String content = IOUtils.toString(in, "UTF-8");
+        // Lecture des données en entrée et conversion.
+        session.read(flowFile, in -> {
+            try{
+                // String content = IOUtils.toString(in, "UTF-8");
 
-                    // Ecriture de l'entête
-                    for(Column c : fileFormat)
-                        data.set(data.get() + c.getName() + ";");
-                    data.set(data.get().substring(0, data.get().length()-1) + "\n");
+                // Ecriture de l'entête
+                for(Column c : fileFormat)
+                    csv.set(csv.get() + c.getName() + ";");
+                // On retire le point virgule en fin de ligne et on revient à la ligne.
+                csv.set(csv.get().substring(0, csv.get().length()-1) + "\n");
 
-                    Scanner scanner = new Scanner(in);
-                    while (scanner.hasNextLine()) {
-                        String line = scanner.nextLine(); // Ligne courante
-                        for(Column c : fileFormat) {
-                            if(c.getIndex() + c.getLength() < line.length())
-                                data.set(data.get() + line.substring(c.getIndex(), c.getIndex() + c.getLength()).trim() + ";");
-                        }
-                        // On retire le point virgule en fin de ligne et on revient à la ligne.
-                        data.set(data.get().substring(0, data.get().length()-1) + "\n");
+                // Lecture du fichier de base et construction du csv.
+                Scanner scanner = new Scanner(in);
+                while (scanner.hasNextLine()) {
+                    String line = scanner.nextLine(); // Ligne courante
+                    for(Column c : fileFormat) {
+                        if(c.getIndex() + c.getLength() < line.length())
+                            csv.set(csv.get() + line.substring(c.getIndex(), c.getIndex() + c.getLength()).trim() + ";");
                     }
-
-                } catch(Exception ex){
-                    ex.printStackTrace();
-                    getLogger().error("Failed to read input file.");
+                    // On retire le point virgule en fin de ligne et on revient à la ligne.
+                    csv.set(csv.get().substring(0, csv.get().length()-1) + "\n");
                 }
+            } catch(Exception ex){
+                ex.printStackTrace();
+                getLogger().error("Failed to read input file.");
             }
         });
 
-        // Ecriture des données dans le flowFile.
-        flowFile = session.write(flowFile, new OutputStreamCallback() {
-            @Override
-            public void process(OutputStream out) throws IOException {
-                out.write(data.get().getBytes());
-            }
-        });
-
-        session.transfer(flowFile, CONVERSION_SUCCESS);
+        // Retourne le résultat du traitement.
+        if(csv.get().length() > 0) {
+            // Ecriture des données dans le flowFile.
+            flowFile = session.write(flowFile, out -> out.write(csv.get().getBytes()));
+            // On retourne le résultat sur la relation 'CONVERSION_SUCCESS'.
+            session.transfer(flowFile, CONVERSION_SUCCESS);
+        } else {
+            // On indique qu'il y a une erreur en continuant dans la reation 'CONVERSION_FAILED'.
+            session.transfer(flowFile, CONVERSION_FAILED);
+        }
     }
 }
